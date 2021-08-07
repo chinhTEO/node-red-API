@@ -1,3 +1,45 @@
+from threading import Thread
+import threading
+
+##################################################### NETWORk #################################################################
+import time
+
+def get_bytes(t, iface='eth1'):
+    with open('/sys/class/net/' + iface + '/statistics/' + t + '_bytes', 'r') as f:
+        data = f.read()
+        return int(data)
+
+def init_network_status(iface='eth1'):
+    global last_time
+    global last_tx
+    global last_rx
+
+    last_time = time.time()
+    last_tx = get_bytes('tx',iface)
+    last_rx = get_bytes('rx',iface)
+
+def get_network_status(iface='eth1'):
+    global last_time
+    global last_tx
+    global last_rx
+
+    period = time.time() - last_time 
+    last_time = time.time()
+
+    tx = get_bytes('tx',iface)
+    rx = get_bytes('rx',iface)
+
+    tx_speed = round((tx - last_tx)/(125000*period), 2)
+    rx_speed = round((rx - last_rx)/(125000*period), 2)
+
+    last_tx = tx
+    last_rx = rx
+
+    return {
+                "TX": tx_speed,
+                "RX": rx_speed
+            }
+
 ##################################################### LED CONFIG ############################################################
 LED_PIN_RED         = 26
 LED_PIN_GREEN       = 13
@@ -87,6 +129,7 @@ def on_message(client, userdata, msg):
             updateLCD(request['line'],request['context'])
         
         if request['cmd'] == "clear LCD":
+            print("clear LCD")
             lcd.clear()
 
         if request['cmd'] == "set LCD":
@@ -126,16 +169,16 @@ def rotationDecodeHandler(channel):
     Switch_A = GPIO.input(ENCODER_PIN_CLK)
     Switch_B = GPIO.input(ENCODER_PIN_DIR)
  
-    if (Switch_B == 0):
-        client.publish("{}/encoder".format(client_id), 1)
+    if (Switch_A == Switch_B):
+        client.publish("/{}/encoder".format(client_id), "1")
         print("encoder + 1")
     else:
-        client.publish("{}/encoder".format(client_id), -1)
+        client.publish("/{}/encoder".format(client_id), "-1")
         print("encoder - 1")
 
 
 def encoderButtonHandler(channel):
-    client.publish("{}/encoder".format(client_id), 0)
+    client.publish("/{}/encoder".format(client_id), "0")
     print("encoder pressed")
 
 def init_GPIO():
@@ -154,31 +197,47 @@ def init_GPIO():
     GPIO.add_event_detect(ENCODER_PIN_BUTTON, GPIO.RISING, callback=encoderButtonHandler, bouncetime=10)
     GPIO.add_event_detect(ENCODER_PIN_CLK, GPIO.RISING, callback=rotationDecodeHandler, bouncetime=10)
 
+def send_heartbeat():
+    global count_HB
+    count_HB = 0
+    while(1):
+        HB_msg = {
+            "ID":   client_id,
+            "description" : "home router hardware",
+            "beat": count_HB
+        }
+        client.publish("heartbeat".format(client_id), json.dumps(HB_msg))
+        print("send heart beat {}".format(count_HB))
+        count_HB = count_HB + 1
+        sleep(5)
+
+def send_networkStatus():
+    init_network_status()
+    while(1):
+        status = get_network_status()
+        client.publish("/{}/networkI0".format(client_id), json.dumps(status))
+        print("send network IO {}".format(status))
+        sleep(1)
+
 def main():
     global client
     global lcd
     global LCD_context
-    count_HB = 0
     client = connect_mqtt()
     init_GPIO()
 
     LCD_context = ["                    ","                    ","                    ","                    "]
-    lcd.write_string('Raspberry Pi HD44780')
-    lcd.cursor_pos = (2, 0)
-    lcd.write_string('https://github.com/\n\rdbrgn/RPLCD')
+    lcd.clear()
 
     #client.loop_forever()
     client.loop_start() #use this if you have logic behind
 
-    # diff = getdiff("bab45a7cd","123456789")
-    # print("get diff")
-    # print(diff)
-
-    while(1):
-        client.publish("{}/HB".format(client_id), count_HB)
-        print("send heart beat {}".format(count_HB))
-        count_HB = count_HB + 1
-        sleep(5)
+    t1 = threading.Thread(target=send_heartbeat)
+    t2 = threading.Thread(target=send_networkStatus)
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
 
 
 if __name__ == "__main__":
