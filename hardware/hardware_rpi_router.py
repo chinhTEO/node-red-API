@@ -1,5 +1,6 @@
 from threading import Thread
 import threading
+import psutil
 
 ##################################################### NETWORk #################################################################
 import time
@@ -217,6 +218,19 @@ def send_networkStatus():
         status = get_network_status()
         client.publish("/{}/networkI0".format(client_id), json.dumps(status))
         print("send network IO {}".format(status))
+
+        cpu_freq = psutil.cpu_freq()
+        cpu_percent = psutil.cpu_percent(interval=1)
+        memory = psutil.virtual_memory()
+
+        router_info = {
+            "cpu_freq" : cpu_freq.current,
+            "cpu_load" : cpu_percent,
+            "memory_percent" : memory.percent 
+        }
+        client.publish("/{}/performance".format(client_id), json.dumps(router_info))
+        print("send router info {}".format(router_info))
+
         sleep(1)
 
 def main():
