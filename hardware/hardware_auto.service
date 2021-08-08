@@ -1,0 +1,12 @@
+[Unit]
+Description=Test Service
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /home/pi/nodered/hardware/hardware_rpi_router.py
+User=pi
+Group=pi
+
+[Install]
+WantedBy=multi-user.target

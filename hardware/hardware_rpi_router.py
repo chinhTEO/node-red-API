@@ -10,6 +10,11 @@ def get_bytes(t, iface='eth1'):
         data = f.read()
         return int(data)
 
+def get_link_speed(iface='eth1'):
+    with open('/sys/class/net/' + iface + '/speed', 'r') as f:
+        data = f.read()
+        return int(data)
+
 def init_network_status(iface='eth1'):
     global last_time
     global last_tx
@@ -36,9 +41,14 @@ def get_network_status(iface='eth1'):
     last_tx = tx
     last_rx = rx
 
+    tx_bandwidth = get_link_speed('eth0')
+    rx_bandwidth = get_link_speed('eth1')
+
     return {
-                "TX": tx_speed,
-                "RX": rx_speed
+                "TX"            : tx_speed,
+                "RX"            : rx_speed,
+                "TX_link_speed" : tx_bandwidth,
+                "RX_link_speed" : rx_bandwidth
             }
 
 ##################################################### LED CONFIG ############################################################
@@ -60,15 +70,17 @@ password = 'public'
 
 def on_connect(client, userdata, flags, rc):
     if rc == 0:
-        print("Connected to MQTT Broker!")
+        #print(("Connected to MQTT Broker!")
+        pass
     else:
-        print("Failed to connect, return code %d\n", rc)
+        #print(("Failed to connect, return code %d\n", rc)
+        pass
 
     result = client.publish("/helloBroker", "{}".format(client_id))
 #################  start subscribe topic ####################
     client.subscribe("/client/{}".format(client_id))
     client.subscribe("/{}/cmd".format(client_id))
-    print("/{}/cmd".format(client_id))
+    #print(("/{}/cmd".format(client_id))
 
 #################  end subscribe topic ####################
 
@@ -76,8 +88,8 @@ def getdiff(line_1, line_2):
     diff = []
     last_pos = 0
     context = ""
-    print("line 1: {}".format(line_1))
-    print("line 2: {}".format(line_2))
+    #print(("line 1: {}".format(line_1))
+    #print(("line 2: {}".format(line_2))
     for i in range(20):
         if line_1[i] == line_2[i]:
             if(last_pos != i):
@@ -105,7 +117,7 @@ def updateLCD(line, context):
 
 def on_message(client, userdata, msg):
 #################  start process subscribed topic ####################
-    print(msg.topic+" "+str(msg.payload))
+    #print((msg.topic+" "+str(msg.payload))
     requests = json.loads(msg.payload)
     for request in requests:
         if request['cmd'] == "set LED green":
@@ -130,7 +142,7 @@ def on_message(client, userdata, msg):
             updateLCD(request['line'],request['context'])
         
         if request['cmd'] == "clear LCD":
-            print("clear LCD")
+            #print(("clear LCD")
             lcd.clear()
 
         if request['cmd'] == "set LCD":
@@ -172,18 +184,18 @@ def rotationDecodeHandler(channel):
  
     if (Switch_A == Switch_B):
         client.publish("/{}/encoder".format(client_id), "1")
-        print("encoder + 1")
+        #print(("encoder + 1")
     else:
         client.publish("/{}/encoder".format(client_id), "-1")
-        print("encoder - 1")
+        #print(("encoder - 1")
 
 
 def encoderButtonHandler(channel):
     client.publish("/{}/encoder".format(client_id), "0")
-    print("encoder pressed")
+    #print(("encoder pressed")
 
 def init_GPIO():
-    print("init GPIO")
+    #print(("init GPIO")
     GPIO.setwarnings(False)
     GPIO.setmode(GPIO.BCM)
     
@@ -208,7 +220,7 @@ def send_heartbeat():
             "beat": count_HB
         }
         client.publish("heartbeat".format(client_id), json.dumps(HB_msg))
-        print("send heart beat {}".format(count_HB))
+        #print(("send heart beat {}".format(count_HB))
         count_HB = count_HB + 1
         sleep(5)
 
@@ -217,7 +229,7 @@ def send_networkStatus():
     while(1):
         status = get_network_status()
         client.publish("/{}/networkI0".format(client_id), json.dumps(status))
-        print("send network IO {}".format(status))
+        #print(("send network IO {}".format(status))
 
         cpu_freq = psutil.cpu_freq()
         cpu_percent = psutil.cpu_percent(interval=1)
@@ -229,7 +241,7 @@ def send_networkStatus():
             "memory_percent" : memory.percent 
         }
         client.publish("/{}/performance".format(client_id), json.dumps(router_info))
-        print("send router info {}".format(router_info))
+        #print(("send router info {}".format(router_info))
 
         sleep(1)
 
